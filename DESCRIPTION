@@ -1,0 +1,29 @@
+Package: shinyburndown
+Title: GitHub Issue Burndown Charts
+Version: 0.1.0
+Authors@R:
+    person("Colin", "Diesh", email = "colin.diesh@gmail.com", role = c("aut", "cre"))
+Description: A Shiny application and CLI tool for visualizing GitHub issue
+    burndown charts. Fetches issue data from any GitHub repository and generates
+    various plots showing issue completion trends, time-to-close distributions,
+    and open issue timelines.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.2.3
+Imports:
+    cli,
+    dplyr,
+    fs,
+    gh,
+    ggplot2,
+    glue,
+    lubridate,
+    plotly,
+    purrr,
+    shiny,
+    stringr,
+    tibble
+Suggests:
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3

@@ -1,3 +1,5 @@
 .Renviron
 rsconnect
 .Rhistory
+cache/
+output/
