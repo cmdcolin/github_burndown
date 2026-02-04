@@ -77,16 +77,25 @@ wait_for_rate_limit <- function(token = NULL) {
   }
 }
 
-fetch_all_issues <- function(orgrepo, token = NULL) {
+fetch_all_issues <- function(orgrepo, token = NULL, since = NULL) {
   all_issues <- list()
   page <- 1
 
-  cli_progress_bar("Fetching issues", type = "tasks")
+  msg <- if (!is.null(since)) {
+    glue("Fetching issues updated since {since}")
+  } else {
+    "Fetching all issues"
+  }
+  cli_progress_bar(msg, type = "tasks")
 
- repeat {
+  repeat {
     wait_for_rate_limit(token)
 
-    endpoint <- glue("GET /repos/{orgrepo}/issues?state=all")
+    endpoint <- if (!is.null(since)) {
+      glue("GET /repos/{orgrepo}/issues?state=all&since={since}")
+    } else {
+      glue("GET /repos/{orgrepo}/issues?state=all")
+    }
     data <- if (!is.null(token) && token != "") {
       gh(endpoint, page = page, .token = token)
     } else {
@@ -126,22 +135,44 @@ parse_issues_to_tibble <- function(issues) {
     select(start, end, title, start_date, end_date, months, issue_number)
 }
 
-load_or_fetch_issues <- function(orgrepo, token = NULL, force_refresh = FALSE) {
+load_or_fetch_issues <- function(orgrepo, token = NULL, force_refresh = FALSE, incremental = FALSE) {
   validation <- validate_orgrepo(orgrepo)
   if (!validation$valid) {
     cli_abort(validation$error)
   }
 
   cache_path <- get_cache_path(orgrepo)
+  fs::dir_create("cache")
 
-  if (!force_refresh && fs::file_exists(cache_path)) {
+  if (!force_refresh && !incremental && fs::file_exists(cache_path)) {
     cli_alert_info("Loading cached data from {cache_path}")
     return(readRDS(cache_path))
   }
 
-  fs::dir_create("cache")
-  issues <- fetch_all_issues(orgrepo, token)
-  df <- parse_issues_to_tibble(issues)
+  if (incremental && fs::file_exists(cache_path)) {
+    cli_alert_info("Performing incremental update...")
+    cached_df <- readRDS(cache_path)
+    since <- max(cached_df$start, na.rm = TRUE)
+    since_iso <- format(since, "%Y-%m-%dT%H:%M:%SZ")
+    cli_alert_info("Fetching issues updated since {since_iso}")
+
+    new_issues <- fetch_all_issues(orgrepo, token, since = since_iso)
+    if (length(new_issues) > 0) {
+      new_df <- parse_issues_to_tibble(new_issues)
+      df <- cached_df |>
+        filter(!issue_number %in% new_df$issue_number) |>
+        bind_rows(new_df) |>
+        arrange(issue_number)
+      cli_alert_success("Merged {nrow(new_df)} updated issues with {nrow(cached_df)} cached issues")
+    } else {
+      df <- cached_df
+      cli_alert_info("No new updates found")
+    }
+  } else {
+    issues <- fetch_all_issues(orgrepo, token)
+    df <- parse_issues_to_tibble(issues)
+  }
+
   saveRDS(df, cache_path)
   cli_alert_success("Cached data to {cache_path}")
   df

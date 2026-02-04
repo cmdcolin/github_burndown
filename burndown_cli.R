@@ -38,6 +38,7 @@ parse_args <- function(args) {
   list(
     orgrepo = args[1],
     force_refresh = "--refresh" %in% args,
+    incremental = "--update" %in% args,
     no_plots = "--no-plots" %in% args,
     use_viridis = "--viridis" %in% args,
     output_dir = parse_named_arg(args, "output-dir", "output"),
@@ -53,7 +54,8 @@ print_usage <- function() {
   cli_text("Example: {.code Rscript burndown_cli.R GMOD/bam-js}")
   cli_h2("Options")
   cli_bullets(c(
-    "*" = "{.arg --refresh}: Force refresh of cached data",
+    "*" = "{.arg --refresh}: Force full refresh of cached data",
+    "*" = "{.arg --update}: Incremental update (fetch only recently updated issues)",
     "*" = "{.arg --output-dir=DIR}: Directory for output plots (default: output)",
     "*" = "{.arg --no-plots}: Skip generating plots, just show summary",
     "*" = "{.arg --viridis}: Use colorblind-friendly viridis palette",
@@ -80,7 +82,7 @@ main <- function() {
     cli_alert_success("Using GITHUB_TOKEN for authenticated requests (5000/hour limit)")
   }
 
-  df <- load_or_fetch_issues(opts$orgrepo, token, opts$force_refresh)
+  df <- load_or_fetch_issues(opts$orgrepo, token, opts$force_refresh, opts$incremental)
   print_summary(df)
 
   if (!opts$no_plots) {
